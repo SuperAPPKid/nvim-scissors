@@ -147,7 +147,8 @@ local function setupPopupKeymaps(bufnr, winnr, mode, snip, prefixBodySep)
 	end)
 
 	keymap("n", maps.showHelp, function()
-		local info = {
+		closePopup()
+		local lines = {
 			"The popup is just one window, so you can move between the prefix area "
 				.. "and the body with `j` and `k` or any other movement command.",
 			"",
@@ -165,7 +166,39 @@ local function setupPopupKeymaps(bufnr, winnr, mode, snip, prefixBodySep)
 			"",
 			"All mappings apply to normal mode (if not noted otherwise).",
 		}
-		u.notify(table.concat(info, "\n"), "info", { id = "scissors-help", timeout = 10000 })
+
+		local help_bufnr = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_buf_set_lines(help_bufnr, 0, -1, true, lines)
+		vim.keymap.set("n", "q", "<cmd>close<CR>", { buffer = help_bufnr })
+		vim.keymap.set("n", "<c-c>", "<cmd>close<CR>", { buffer = help_bufnr })
+		vim.bo[help_bufnr].modifiable = false
+		vim.bo[help_bufnr].bufhidden = "wipe"
+
+		local winid = vim.api.nvim_open_win(help_bufnr, true, {
+			relative = "win",
+			row = 0,
+			col = 0,
+			width = vim.api.nvim_win_get_width(0) - 2,
+			height = #lines,
+			zindex = 150,
+			style = "minimal",
+			border = require("scissors.config").config.editSnippetPopup.border,
+		})
+		local function close()
+			if vim.api.nvim_win_is_valid(winid) then vim.api.nvim_win_close(winid, true) end
+		end
+		vim.api.nvim_create_autocmd("BufLeave", {
+			callback = close,
+			once = true,
+			nested = true,
+			buffer = help_bufnr,
+		})
+		vim.api.nvim_create_autocmd("WinLeave", {
+			callback = close,
+			once = true,
+			nested = true,
+			buffer = help_bufnr,
+		})
 	end)
 
 	-----------------------------------------------------------------------------
